@@ -168,3 +168,16 @@ func injectTracerPlugin(pl plugin.PluginTracer) error {
 	opentracing.SetGlobalTracer(tracer)
 	return nil
 }
+
+// GetPlugin retrieve the specific plugin
+func (loader *PluginLoader) GetPlugin(name string) (plugin.Plugin, error) {
+	fmt.Println(loader.plugins)
+	for _, pl := range loader.plugins {
+		if pl.Name() == name {
+			return pl, nil
+		}
+	}
+
+	err := fmt.Errorf("Key \"%s\" is not found", name)
+	return nil, err
+}

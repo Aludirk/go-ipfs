@@ -9,3 +9,4 @@ ipldiscn github.com/likecoin/likecoin-iscn-ipld/plugin 0
 badgerds github.com/ipfs/go-ipfs/plugin/plugins/badgerds 0
 flatfs github.com/ipfs/go-ipfs/plugin/plugins/flatfs 0
 levelds github.com/ipfs/go-ipfs/plugin/plugins/levelds 0
+cosmosds github.com/ipfs/go-ipfs/plugin/plugins/cosmosds 0

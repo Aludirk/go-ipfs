@@ -3,6 +3,7 @@ package loader
 import (
 	"github.com/ipfs/go-ipfs/plugin"
 	pluginbadgerds "github.com/ipfs/go-ipfs/plugin/plugins/badgerds"
+	plugincosmosds "github.com/ipfs/go-ipfs/plugin/plugins/cosmosds"
 	pluginflatfs "github.com/ipfs/go-ipfs/plugin/plugins/flatfs"
 	pluginipldgit "github.com/ipfs/go-ipfs/plugin/plugins/git"
 	pluginlevelds "github.com/ipfs/go-ipfs/plugin/plugins/levelds"
@@ -19,4 +20,5 @@ var preloadPlugins = []plugin.Plugin{
 	pluginbadgerds.Plugins[0],
 	pluginflatfs.Plugins[0],
 	pluginlevelds.Plugins[0],
+	plugincosmosds.Plugins[0],
 }
