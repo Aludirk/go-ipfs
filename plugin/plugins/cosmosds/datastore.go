@@ -17,7 +17,7 @@ import (
 	dsq "github.com/ipfs/go-datastore/query"
 	blocks "github.com/ipfs/go-ipfs-blockstore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
-	iscn "github.com/likecoin/likecoin-iscn-ipld/plugin/block"
+	iscn "github.com/likecoin/iscn-ipld/plugin/block"
 )
 
 // Datastore is the main structure.

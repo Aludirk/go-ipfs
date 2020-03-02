@@ -1,6 +1,6 @@
 module github.com/ipfs/go-ipfs
 
-replace github.com/likecoin/likecoin-iscn-ipld => ./plugin/plugins/likecoin-iscn-ipld
+replace github.com/likecoin/iscn-ipld => ./plugin/plugins/iscn-ipld
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
@@ -89,7 +89,7 @@ require (
 	github.com/libp2p/go-maddr-filter v0.0.4
 	github.com/libp2p/go-stream-muxer v0.0.1
 	github.com/libp2p/go-testutil v0.0.1
-	github.com/likecoin/likecoin-iscn-ipld v0.0.0-00010101000000-000000000000
+	github.com/likecoin/iscn-ipld v0.0.0-00010101000000-000000000000
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.1.2
 	github.com/multiformats/go-multiaddr v0.0.4
