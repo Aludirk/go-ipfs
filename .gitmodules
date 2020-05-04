@@ -1,0 +1,3 @@
+[submodule "plugin/plugins/iscn-ipld"]
+	path = plugin/plugins/iscn-ipld
+	url = git@github.com:likecoin/iscn-ipld.git
