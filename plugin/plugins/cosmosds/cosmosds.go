@@ -39,7 +39,7 @@ func (*Plugin) Version() string {
 }
 
 // Init Plugin
-func (*Plugin) Init() error {
+func (*Plugin) Init(_ *plugin.Environment) error {
 	log.Println("cm-Init")
 	return nil
 }

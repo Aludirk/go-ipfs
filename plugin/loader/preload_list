@@ -1,12 +1,12 @@
 # this file contains plugins to be preloaded
 # empty lines or starting with '#' are ignored
 #
-# name             go-path                  number of the sub-plugin
+# name             go-path                  number of the sub-plugin or *
 
-ipldgit github.com/ipfs/go-ipfs/plugin/plugins/git 0
-ipldiscn github.com/likecoin/iscn-ipld/plugin 0
+ipldgit github.com/ipfs/go-ipfs/plugin/plugins/git *
+ipldiscn github.com/likecoin/iscn-ipld/plugin *
 
-badgerds github.com/ipfs/go-ipfs/plugin/plugins/badgerds 0
-flatfs github.com/ipfs/go-ipfs/plugin/plugins/flatfs 0
-levelds github.com/ipfs/go-ipfs/plugin/plugins/levelds 0
-cosmosds github.com/ipfs/go-ipfs/plugin/plugins/cosmosds 0
+badgerds github.com/ipfs/go-ipfs/plugin/plugins/badgerds *
+flatfs github.com/ipfs/go-ipfs/plugin/plugins/flatfs *
+levelds github.com/ipfs/go-ipfs/plugin/plugins/levelds *
+cosmosds github.com/ipfs/go-ipfs/plugin/plugins/cosmosds *

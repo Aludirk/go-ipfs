@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/cosmos/cosmos-sdk/store"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -60,11 +61,12 @@ func NewDatastore(path string, opts *Options) (*Datastore, error) {
 		return nil, err
 	}
 
-	return &Datastore{
-		accessor: &accessor{ldb: db},
+	ds := Datastore{
+		accessor: &accessor{ldb: db, syncWrites: true, closeLk: new(sync.RWMutex)},
 		DB:       db,
 		path:     path,
-	}, nil
+	}
+	return &ds, nil
 }
 
 // An extraction of the common interface between LevelDB Transactions and the DB itself.
@@ -80,8 +82,10 @@ type levelDbOps interface {
 
 // Datastore operations using either the DB or a transaction as the backend.
 type accessor struct {
-	ldb levelDbOps
-	kv  store.KVStore
+	ldb        levelDbOps
+	syncWrites bool
+	closeLk    *sync.RWMutex
+	kv         store.KVStore
 }
 
 func isISCN(key ds.Key) bool {
@@ -113,7 +117,13 @@ func (a *accessor) Put(key ds.Key, value []byte) (err error) {
 		return nil
 	}
 
-	return a.ldb.Put(key.Bytes(), value, nil)
+	a.closeLk.RLock()
+	defer a.closeLk.RUnlock()
+	return a.ldb.Put(key.Bytes(), value, &opt.WriteOptions{Sync: a.syncWrites})
+}
+
+func (a *accessor) Sync(prefix ds.Key) error {
+	return nil
 }
 
 func (a *accessor) Get(key ds.Key) (value []byte, err error) {
@@ -128,6 +138,8 @@ func (a *accessor) Get(key ds.Key) (value []byte, err error) {
 		return a.kv.Get(key.Bytes()), nil
 	}
 
+	a.closeLk.RLock()
+	defer a.closeLk.RUnlock()
 	val, err := a.ldb.Get(key.Bytes(), nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -142,6 +154,8 @@ func (a *accessor) Has(key ds.Key) (exists bool, err error) {
 	log.Printf("ds-Has: %s", key)
 
 	//TODO: Should check key for Cosmos
+	a.closeLk.RLock()
+	defer a.closeLk.RUnlock()
 	return a.ldb.Has(key.Bytes(), nil)
 }
 
@@ -154,28 +168,23 @@ func (a *accessor) GetSize(key ds.Key) (size int, err error) {
 
 func (a *accessor) Delete(key ds.Key) (err error) {
 	log.Printf("ds-Delete: %s", key)
-	// leveldb Delete will not return an error if the key doesn't
-	// exist (see https://github.com/syndtr/goleveldb/issues/109),
-	// so check that the key exists first and if not return an
-	// error
-	exists, err := a.ldb.Has(key.Bytes(), nil)
-	if !exists {
-		return ds.ErrNotFound
-	} else if err != nil {
-		return err
-	}
-	return a.ldb.Delete(key.Bytes(), nil)
+	a.closeLk.RLock()
+	defer a.closeLk.RUnlock()
+	return a.ldb.Delete(key.Bytes(), &opt.WriteOptions{Sync: a.syncWrites})
 }
 
 func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 	log.Printf("ds-Query: %v", q)
+	a.closeLk.RLock()
+	defer a.closeLk.RUnlock()
 	var rnge *util.Range
 
 	// make a copy of the query for the fallback naive query implementation.
 	// don't modify the original so res.Query() returns the correct results.
 	qNaive := q
-	if q.Prefix != "" {
-		rnge = util.BytesPrefix([]byte(q.Prefix))
+	prefix := ds.NewKey(q.Prefix).String()
+	if prefix != "/" {
+		rnge = util.BytesPrefix([]byte(prefix + "/"))
 		qNaive.Prefix = ""
 	}
 	i := a.ldb.NewIterator(rnge, nil)
@@ -195,11 +204,13 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 	}
 	r := dsq.ResultsFromIterator(q, dsq.Iterator{
 		Next: func() (dsq.Result, bool) {
+			a.closeLk.RLock()
+			defer a.closeLk.RUnlock()
 			if !next() {
 				return dsq.Result{}, false
 			}
 			k := string(i.Key())
-			e := dsq.Entry{Key: k}
+			e := dsq.Entry{Key: k, Size: len(i.Value())}
 
 			if !q.KeysOnly {
 				buf := make([]byte, len(i.Value()))
@@ -209,6 +220,8 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 			return dsq.Result{Entry: e}, true
 		},
 		Close: func() error {
+			a.closeLk.RLock()
+			defer a.closeLk.RUnlock()
 			i.Release()
 			return nil
 		},
@@ -220,6 +233,8 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 // For in-mem datastores, it will return 0.
 func (d *Datastore) DiskUsage() (uint64, error) {
 	log.Println("ds-DiskUsage")
+	d.closeLk.RLock()
+	defer d.closeLk.RUnlock()
 	if d.path == "" { // in-mem
 		return 0, nil
 	}
@@ -244,20 +259,26 @@ func (d *Datastore) DiskUsage() (uint64, error) {
 // Close the LevelDB
 func (d *Datastore) Close() (err error) {
 	log.Println("ds-Close")
+	d.closeLk.Lock()
+	defer d.closeLk.Unlock()
 	return d.DB.Close()
 }
 
 type leveldbBatch struct {
-	b  *leveldb.Batch
-	db *leveldb.DB
+	b          *leveldb.Batch
+	db         *leveldb.DB
+	closeLk    *sync.RWMutex
+	syncWrites bool
 }
 
 // Batch creates the LevelDB batch operator
 func (d *Datastore) Batch() (ds.Batch, error) {
 	log.Println("ds-Batch")
 	return &leveldbBatch{
-		b:  new(leveldb.Batch),
-		db: d.DB,
+		b:          new(leveldb.Batch),
+		db:         d.DB,
+		closeLk:    d.closeLk,
+		syncWrites: d.syncWrites,
 	}, nil
 }
 
@@ -269,7 +290,9 @@ func (b *leveldbBatch) Put(key ds.Key, value []byte) error {
 
 func (b *leveldbBatch) Commit() error {
 	log.Println("dsB-Commit")
-	return b.db.Write(b.b, nil)
+	b.closeLk.RLock()
+	defer b.closeLk.RUnlock()
+	return b.db.Write(b.b, &opt.WriteOptions{Sync: b.syncWrites})
 }
 
 func (b *leveldbBatch) Delete(key ds.Key) error {
@@ -286,22 +309,28 @@ type transaction struct {
 
 func (t *transaction) Commit() error {
 	log.Println("t-Commit")
+	t.closeLk.RLock()
+	defer t.closeLk.RUnlock()
 	return t.tx.Commit()
 }
 
 func (t *transaction) Discard() {
 	log.Println("t-Discard")
+	t.closeLk.RLock()
+	defer t.closeLk.RUnlock()
 	t.tx.Discard()
 }
 
 // NewTransaction creates a transation
 func (d *Datastore) NewTransaction(readOnly bool) (ds.Txn, error) {
 	log.Println("t-NewTransaction")
+	d.closeLk.RLock()
+	defer d.closeLk.RUnlock()
 	tx, err := d.DB.OpenTransaction()
 	if err != nil {
 		return nil, err
 	}
-	accessor := &accessor{ldb: tx}
+	accessor := &accessor{ldb: tx, syncWrites: false, closeLk: d.closeLk}
 	return &transaction{accessor, tx}, nil
 }
 

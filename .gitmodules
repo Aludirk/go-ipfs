@@ -1,3 +1,6 @@
+[submodule "assets/dir-index-html"]
+	path = assets/dir-index-html
+	url = https://github.com/ipfs/dir-index-html.git
 [submodule "plugin/plugins/iscn-ipld"]
 	path = plugin/plugins/iscn-ipld
 	url = git@github.com:likecoin/iscn-ipld.git
