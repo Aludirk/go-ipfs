@@ -1,7 +1,6 @@
 package cosmosds
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -39,7 +38,6 @@ type Options opt.Options
 //
 // for path == "", an in memory bachend will be chosen
 func NewDatastore(path string, opts *Options) (*Datastore, error) {
-	log.Println("ds-NewDatastore")
 	var nopts opt.Options
 	if opts != nil {
 		nopts = opt.Options(*opts)
@@ -95,7 +93,6 @@ func isISCN(key ds.Key) bool {
 
 	c, err := dshelp.DsKeyToCid(ds.NewKey(key.BaseNamespace()))
 	if err != nil {
-		log.Printf("Cannot parse datastore key to CID: %s", err)
 		return false
 	}
 
@@ -103,17 +100,14 @@ func isISCN(key ds.Key) bool {
 }
 
 func (a *accessor) Put(key ds.Key, value []byte) (err error) {
-	log.Printf("ds-Put: %s %s", key, value)
-
 	// The following block is just for testing,
 	// the putting action should be performed from Cosmos SDK
 	if isISCN(key) {
 		if a.kv == nil {
-			log.Panic("The Cosmos KVStore is not set")
+			panic("The Cosmos KVStore is not set")
 		}
 
 		a.kv.Set(key.Bytes(), value)
-		log.Printf("ds-Put: Cosmos %s %s", key, value)
 		return nil
 	}
 
@@ -127,14 +121,12 @@ func (a *accessor) Sync(prefix ds.Key) error {
 }
 
 func (a *accessor) Get(key ds.Key) (value []byte, err error) {
-	log.Printf("ds-Get: %s", key)
 
 	if isISCN(key) {
 		if a.kv == nil {
-			log.Panic("The Cosmos KVStore is not set")
+			panic("The Cosmos KVStore is not set")
 		}
 
-		log.Printf("ds-Get: Cosmos %s", key)
 		return a.kv.Get(key.Bytes()), nil
 	}
 
@@ -151,8 +143,6 @@ func (a *accessor) Get(key ds.Key) (value []byte, err error) {
 }
 
 func (a *accessor) Has(key ds.Key) (exists bool, err error) {
-	log.Printf("ds-Has: %s", key)
-
 	//TODO: Should check key for Cosmos
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
@@ -160,21 +150,17 @@ func (a *accessor) Has(key ds.Key) (exists bool, err error) {
 }
 
 func (a *accessor) GetSize(key ds.Key) (size int, err error) {
-	log.Printf("ds-GetSize: %s", key)
-
 	//TODO: Should check key for Cosmos
 	return ds.GetBackedSize(a, key)
 }
 
 func (a *accessor) Delete(key ds.Key) (err error) {
-	log.Printf("ds-Delete: %s", key)
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
 	return a.ldb.Delete(key.Bytes(), &opt.WriteOptions{Sync: a.syncWrites})
 }
 
 func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
-	log.Printf("ds-Query: %v", q)
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
 	var rnge *util.Range
@@ -232,7 +218,6 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 // DiskUsage returns the current disk size used by this levelDB.
 // For in-mem datastores, it will return 0.
 func (d *Datastore) DiskUsage() (uint64, error) {
-	log.Println("ds-DiskUsage")
 	d.closeLk.RLock()
 	defer d.closeLk.RUnlock()
 	if d.path == "" { // in-mem
@@ -258,7 +243,6 @@ func (d *Datastore) DiskUsage() (uint64, error) {
 
 // Close the LevelDB
 func (d *Datastore) Close() (err error) {
-	log.Println("ds-Close")
 	d.closeLk.Lock()
 	defer d.closeLk.Unlock()
 	return d.DB.Close()
@@ -273,7 +257,6 @@ type leveldbBatch struct {
 
 // Batch creates the LevelDB batch operator
 func (d *Datastore) Batch() (ds.Batch, error) {
-	log.Println("ds-Batch")
 	return &leveldbBatch{
 		b:          new(leveldb.Batch),
 		db:         d.DB,
@@ -283,20 +266,17 @@ func (d *Datastore) Batch() (ds.Batch, error) {
 }
 
 func (b *leveldbBatch) Put(key ds.Key, value []byte) error {
-	log.Printf("dsB-Put: %s %s", key, value)
 	b.b.Put(key.Bytes(), value)
 	return nil
 }
 
 func (b *leveldbBatch) Commit() error {
-	log.Println("dsB-Commit")
 	b.closeLk.RLock()
 	defer b.closeLk.RUnlock()
 	return b.db.Write(b.b, &opt.WriteOptions{Sync: b.syncWrites})
 }
 
 func (b *leveldbBatch) Delete(key ds.Key) error {
-	log.Printf("dsB-Detele: %s", key)
 	b.b.Delete(key.Bytes())
 	return nil
 }
@@ -308,14 +288,12 @@ type transaction struct {
 }
 
 func (t *transaction) Commit() error {
-	log.Println("t-Commit")
 	t.closeLk.RLock()
 	defer t.closeLk.RUnlock()
 	return t.tx.Commit()
 }
 
 func (t *transaction) Discard() {
-	log.Println("t-Discard")
 	t.closeLk.RLock()
 	defer t.closeLk.RUnlock()
 	t.tx.Discard()
@@ -323,7 +301,6 @@ func (t *transaction) Discard() {
 
 // NewTransaction creates a transation
 func (d *Datastore) NewTransaction(readOnly bool) (ds.Txn, error) {
-	log.Println("t-NewTransaction")
 	d.closeLk.RLock()
 	defer d.closeLk.RUnlock()
 	tx, err := d.DB.OpenTransaction()
@@ -337,7 +314,7 @@ func (d *Datastore) NewTransaction(readOnly bool) (ds.Txn, error) {
 // SetCosmosStore sets the Cosmos KVStore for retrieving ISCN block
 func (d *Datastore) SetCosmosStore(kv store.KVStore) error {
 	if d.kv != nil {
-		log.Panic("Cosmos KVStore has already set")
+		panic("Cosmos KVStore has already set")
 	}
 	d.kv = kv
 	return nil

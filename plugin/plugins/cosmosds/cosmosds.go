@@ -2,7 +2,6 @@ package cosmosds
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 
 	"github.com/cosmos/cosmos-sdk/store"
@@ -28,25 +27,21 @@ var _ plugin.PluginDatastore = (*Plugin)(nil)
 
 // Name returns the name of Plugin
 func (*Plugin) Name() string {
-	log.Println("cm-Name")
 	return "ds-cosmos"
 }
 
 // Version returns the version of Plugin
 func (*Plugin) Version() string {
-	log.Println("cm-Version")
 	return "0.1.0"
 }
 
 // Init Plugin
 func (*Plugin) Init(_ *plugin.Environment) error {
-	log.Println("cm-Init")
 	return nil
 }
 
 // DatastoreTypeName defines the type name of the datastore
 func (*Plugin) DatastoreTypeName() string {
-	log.Println("cm-DatastoreTypeName")
 	return "cosmosds"
 }
 
@@ -58,9 +53,7 @@ type datastoreConfig struct {
 
 // DatastoreConfigParser returns a configuration stub for a Cosmos datastore from the given parameters
 func (p *Plugin) DatastoreConfigParser() fsrepo.ConfigFromMap {
-	log.Println("cm-DatastoreConfigParser")
 	return func(params map[string]interface{}) (fsrepo.DatastoreConfig, error) {
-		log.Println("cm-DatastoreConfigParser-func")
 		var c datastoreConfig
 		var ok bool
 
@@ -88,13 +81,12 @@ func (p *Plugin) DatastoreConfigParser() fsrepo.ConfigFromMap {
 // SetCosmosStore sets the Cosmos KVStore for retrieving ISCN block
 func (p *Plugin) SetCosmosStore(kv store.KVStore) error {
 	if p.ds == nil {
-		log.Panic("Cosmos datastore is not initialized")
+		panic("Cosmos datastore is not initialized")
 	}
 	return p.ds.SetCosmosStore(kv)
 }
 
 func (c *datastoreConfig) DiskSpec() fsrepo.DiskSpec {
-	log.Println("dsc-DiskSpec")
 	return map[string]interface{}{
 		"type": "cosmosds",
 		"path": c.path,
@@ -102,7 +94,6 @@ func (c *datastoreConfig) DiskSpec() fsrepo.DiskSpec {
 }
 
 func (c *datastoreConfig) Create(path string) (repo.Datastore, error) {
-	log.Println("dsc-Create")
 	p := c.path
 	if !filepath.IsAbs(p) {
 		p = filepath.Join(path, p)
@@ -112,7 +103,6 @@ func (c *datastoreConfig) Create(path string) (repo.Datastore, error) {
 		Compression: c.compression,
 	})
 	if err != nil {
-		log.Printf("Cannot create Cosmos datastore: %s", err)
 		return nil, err
 	}
 
