@@ -99,7 +99,7 @@ func isISCN(key ds.Key) bool {
 		return false
 	}
 
-	return (c.Type() == iscn.CodecISCN)
+	return iscn.IsIscnObject(c.Type())
 }
 
 func (a *accessor) Put(key ds.Key, value []byte) (err error) {
